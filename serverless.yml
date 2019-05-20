@@ -19,7 +19,7 @@ service: wiki-reindexer-lambda # NOTE: update this with your service name
 
 provider:
   name: aws
-  runtime: python3.7
+  runtime: python3.6
 
 # you can overwrite defaults here
 #  stage: dev
@@ -57,7 +57,8 @@ provider:
 functions:
   hello:
     handler: handler.hello
-
+    layers:
+        - arn:aws:lambda:us-west-2:344850189907:layer:pandoc-layer:1
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -103,3 +104,16 @@ functions:
 #     NewOutput:
 #       Description: "Description for the output"
 #       Value: "Some output value"
+
+package:
+  exclude:
+    - a/** # virtualenv
+
+
+
+plugins:
+  - serverless-python-requirements
+
+custom:
+  pythonRequirements:
+    dockerizePip: non-linux

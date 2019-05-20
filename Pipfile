@@ -7,9 +7,9 @@ name = "pypi"
 
 [packages]
 
-elasticsearch-dsl = "*"
 sh = "*"
 scrapy = "*"
+elasticsearch = "*"
 
 
 [dev-packages]

@@ -1,9 +1,18 @@
+
 import json
+import os
+
+import elasticsearch
+import scrapy
+import sh
+
+
 
 
 def hello(event, context):
     body = {
         "message": "Go Serverless v1.0! Your function executed successfully!",
+        "log": os.listdir("/opt"),
         "input": event
     }
 
