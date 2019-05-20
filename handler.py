@@ -12,10 +12,11 @@ import sh
 
 
 def hello(event, context):
-    # out = sh.echo("hello")
+    out = sh.echo("hello", _tty_out=False, _tty_in=False)
     body = {
         "message": "Go Serverless v1.0! Your function executed successfully!",
         "log": os.listdir("/opt"),
+        "sh_retcode": out.exit_code,
         "retcode": subprocess.run(["ls"]).returncode,
         "perms": oct(os.stat("/opt/pandoc")[stat.ST_MODE]),
         "input": event
