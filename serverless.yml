@@ -57,6 +57,7 @@ provider:
 functions:
   hello:
     handler: handler.hello
+    timeout: 900 # adjust me downwards later
     layers:
         - arn:aws:lambda:us-west-2:344850189907:layer:pandoc-layer:1
 #    The following are a few example events you can configure
