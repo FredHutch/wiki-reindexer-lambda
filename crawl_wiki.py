@@ -160,10 +160,11 @@ def main():
         outer.append(temp)
 
     try:
-        bulk(els, outer)
+        return bulk(els, outer)
     except ElasticsearchException as exc:
         print("caught exception when bulking up")
         print(exc)
+        return exc
 
 
 if __name__ == "__main__":
