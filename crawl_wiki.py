@@ -125,7 +125,9 @@ if __name__ == "__main__":
     for item in ws.documents:
         id = item['url']
         del item['url']
-        temp = dict(_id= id, _index="sciwiki0", _op_type="create", _type="document", _source=item)
+        # no need for _op_type below; default is to index (if doc exists) or 
+        # create (if not). https://stackoverflow.com/q/32133472/470769
+        temp = dict(_id= id, _index="sciwiki0", _type="document", _source=item)
         outer.append(temp)
     
     try:
