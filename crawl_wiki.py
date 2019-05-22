@@ -76,31 +76,21 @@ class WikiSpider(scrapy.Spider):
     documents = []
 
     def parse(self, response):
-        print("in parse")
         url_str = response.url
-        print("url is {}".format(url_str))
         url = urlparse(url_str).path
         if url == "":
             url = "/"
 
-        # print(response.url)
-        print("on page {}".format(str(response)))
-
         try:
             titles = response.css("title")
-            print("got title {}".format(titles))
         except scrapy.exceptions.NotSupported:
             # message "Response content isn't text" means this is a binary file or something
             print("In except clause")
             return
 
-        print("trying to get body")
         body = response.body.decode("utf-8")
-        print("got body")
         text = html_to_text(body)
-        print("converted body to text")
 
-        print("len of titles is {}".format(len(titles)))
         for title in titles:  # really there should only be one.
             tstr = title.get()  # 'data'
             tstr = ireplace("<title>", "", tstr)
@@ -118,9 +108,7 @@ class WikiSpider(scrapy.Spider):
 
         for item in response.css('a::attr("href")'):
             npurl = item.get()
-            print("next page url is {}".format(npurl) )
             if npurl is None:
-                print("npurl is none")
                 continue
             npurl = npurl.strip()
             # NOTE: This will exclude absolute links back to the site,
@@ -129,18 +117,14 @@ class WikiSpider(scrapy.Spider):
                 print("excluded absolute link {}".format(npurl))
                 continue
             if npurl.startswith("#"):
-                print("HODAD!!!!")
                 continue
-            print("url is {}".format(npurl))
             if not npurl in URLDICT:
-                print("found a new url to index")
                 URLDICT[npurl] = 1
                 yield response.follow(item, self.parse)
 
 
 def main():
     "do the work"
-    print("in main")
     os.environ['PATH'] += ":/opt"
     crawler = scrapy.crawler.CrawlerProcess(
         {
@@ -150,11 +134,8 @@ def main():
     )
 
     wks = WikiSpider()
-    print("got wks")
     crawlres = crawler.crawl(wks)
-    print("called crawl() with result {}".format(crawlres))
     crawler.start()
-    print("called start()")
 
     session = boto3.session.Session()
     credentials = session.get_credentials().get_frozen_credentials()
@@ -176,7 +157,6 @@ def main():
         verify_certs=True,
         connection_class=RequestsHttpConnection,
     )
-    print("created els")
 
     outer = []
 
@@ -189,9 +169,7 @@ def main():
         temp = dict(_id=doc_id, _index="sciwiki-test", _type="document", _source=item)
         outer.append(temp)
 
-    print("len of outer is {}".format(len(outer)))
 
-    print("about to bulk up")
     try:
         retval =  bulk(els, outer)
         print("bulking was successful")

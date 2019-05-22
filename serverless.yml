@@ -24,6 +24,14 @@ provider:
     -  Effect: "Allow"
        Action: "es:*"
        Resource: "*"
+    -  Effect: "Allow"
+       Action: "lambda:Invoke"
+       Resource: "*"
+    -  Effect: "Allow"
+       Action: "lambda:ListFunctions"
+       Resource: "*"
+       
+      
 
 # you can overwrite defaults here
 #  stage: dev
@@ -59,11 +67,15 @@ provider:
 #    - exclude-me-dir/**
 
 functions:
-  hello:
-    handler: handler.hello
+  run_crawler:
+    handler: handler.run_crawler
     timeout: 900 # adjust me downwards later
     layers:
         - arn:aws:lambda:us-west-2:344850189907:layer:pandoc-layer:1
+  push_hook:
+    handler: handler.push_hook
+    timeout: 900 # adjust me later
+
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
@@ -89,7 +101,7 @@ functions:
 #            detail:
 #              state:
 #                - pending
-#      - cloudwatchLog: '/aws/lambda/hello'
+#      - cloudwatchLog: '/aws/lambda/run_crawler'
 #      - cognitoUserPool:
 #          pool: MyUserPool
 #          trigger: PreSignUp
