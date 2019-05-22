@@ -7,9 +7,20 @@ Run me with:
 scrapy runspider -o out.json -t json crawl_wiki.py
 """
 
+# import imp # NOTE deprecated in favor of importlib TODO FIX
+import importlib
+import os
 import re
 from urllib.parse import urlparse
+import sys
 import tempfile
+
+# sys.modules["_sqlite"] = imp.new_module("_sqlite")
+
+spec = importlib.util.spec_from_file_location("_sqlite3","/dummysqllite.py")
+sys.modules["_sqlite3"] = importlib.util.module_from_spec(spec)
+sys.modules["sqlite3"] = importlib.util.module_from_spec(spec)
+sys.modules["sqlite3.dbapi2"] = importlib.util.module_from_spec(spec)
 
 from aws_requests_auth.aws_auth import AWSRequestsAuth
 import boto3
@@ -50,6 +61,8 @@ def html_to_text(html):
     print("exit code is {}".format(pandoc_result.exit_code))
     with open(outfile[1]) as outfh:
         output = outfh.read()
+    os.remove(infile[1])
+    os.remove(outfile[1])
     return output
 
 
@@ -63,7 +76,9 @@ class WikiSpider(scrapy.Spider):
     documents = []
 
     def parse(self, response):
+        print("in parse")
         url_str = response.url
+        print("url is {}".format(url_str))
         url = urlparse(url_str).path
         if url == "":
             url = "/"
@@ -73,14 +88,19 @@ class WikiSpider(scrapy.Spider):
 
         try:
             titles = response.css("title")
+            print("got title {}".format(titles))
         except scrapy.exceptions.NotSupported:
             # message "Response content isn't text" means this is a binary file or something
             print("In except clause")
             return
 
+        print("trying to get body")
         body = response.body.decode("utf-8")
+        print("got body")
         text = html_to_text(body)
+        print("converted body to text")
 
+        print("len of titles is {}".format(len(titles)))
         for title in titles:  # really there should only be one.
             tstr = title.get()  # 'data'
             tstr = ireplace("<title>", "", tstr)
@@ -98,7 +118,9 @@ class WikiSpider(scrapy.Spider):
 
         for item in response.css('a::attr("href")'):
             npurl = item.get()
+            print("next page url is {}".format(npurl) )
             if npurl is None:
+                print("npurl is none")
                 continue
             npurl = npurl.strip()
             # NOTE: This will exclude absolute links back to the site,
@@ -111,21 +133,28 @@ class WikiSpider(scrapy.Spider):
                 continue
             print("url is {}".format(npurl))
             if not npurl in URLDICT:
+                print("found a new url to index")
                 URLDICT[npurl] = 1
                 yield response.follow(item, self.parse)
 
 
 def main():
     "do the work"
+    print("in main")
+    os.environ['PATH'] += ":/opt"
     crawler = scrapy.crawler.CrawlerProcess(
         {
-            "USER_AGENT": "Dan Tenenbaum (+https://sciwiki.fredhutch.org/contributors/dtenenba/)"
+            "USER_AGENT": "Dan Tenenbaum (+https://sciwiki.fredhutch.org/contributors/dtenenba/)",
+            "FEED_URI": "/tmp/results.json",
         }
     )
 
     wks = WikiSpider()
-    crawler.crawl(wks)
+    print("got wks")
+    crawlres = crawler.crawl(wks)
+    print("called crawl() with result {}".format(crawlres))
     crawler.start()
+    print("called start()")
 
     session = boto3.session.Session()
     credentials = session.get_credentials().get_frozen_credentials()
@@ -147,6 +176,7 @@ def main():
         verify_certs=True,
         connection_class=RequestsHttpConnection,
     )
+    print("created els")
 
     outer = []
 
@@ -159,12 +189,18 @@ def main():
         temp = dict(_id=doc_id, _index="sciwiki-test", _type="document", _source=item)
         outer.append(temp)
 
+    print("len of outer is {}".format(len(outer)))
+
+    print("about to bulk up")
     try:
-        return bulk(els, outer)
+        retval =  bulk(els, outer)
+        print("bulking was successful")
+        print(retval)
+        return retval
     except ElasticsearchException as exc:
         print("caught exception when bulking up")
         print(exc)
-        return exc
+        return str(exc)
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ import boto3
 from aws_requests_auth.aws_auth import AWSRequestsAuth
 from elasticsearch import Elasticsearch, RequestsHttpConnection
 
+import crawl_wiki
 
 def get_es_info():
     session = boto3.session.Session()
@@ -38,35 +39,11 @@ def get_es_info():
 
 
 def hello(event, context):
-    infile = tempfile.mkstemp()
-    outfile = tempfile.mkstemp()
-    with open(infile[1], "w") as infh:
-        infh.write("<p>i am some text</p>")
-    os.environ["PATH"] += ":/opt"
-    sh.pandoc(
-        "-f",
-        "html",
-        "-t",
-        "plain",
-        "-o",
-        outfile[1],
-        infile[1],
-        _tty_out=False,
-        _tty_in=False,
-    )
-    output = None
-    with open(outfile[1]) as outfh:
-        output = outfh.read()
-    out = sh.echo("hello", _tty_out=False, _tty_in=False)
-
+    print("in hello()")
     body = {
         "message": "Go Serverless v1.0! Your function executed successfully!",
-        "log": os.listdir("/opt"),
-        "sh_retcode": out.exit_code,
-        "retcode": subprocess.run(["ls"]).returncode,
         "input": event,
-        "output": output,
-        "es_info": get_es_info(),
+        "crawl_result": crawl_wiki.main()
     }
 
     response = {"statusCode": 200, "body": json.dumps(body)}
