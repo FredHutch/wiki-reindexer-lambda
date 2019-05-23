@@ -17,10 +17,6 @@ import tempfile
 
 # sys.modules["_sqlite"] = imp.new_module("_sqlite")
 
-spec = importlib.util.spec_from_file_location("_sqlite3","/dummysqllite.py")
-sys.modules["_sqlite3"] = importlib.util.module_from_spec(spec)
-sys.modules["sqlite3"] = importlib.util.module_from_spec(spec)
-sys.modules["sqlite3.dbapi2"] = importlib.util.module_from_spec(spec)
 
 from aws_requests_auth.aws_auth import AWSRequestsAuth
 import boto3
@@ -30,6 +26,11 @@ import scrapy
 import scrapy.crawler
 import scrapy.settings
 import sh
+
+SPEC = importlib.util.spec_from_file_location("_sqlite3", "/dummysqllite.py")
+sys.modules["_sqlite3"] = importlib.util.module_from_spec(SPEC)
+sys.modules["sqlite3"] = importlib.util.module_from_spec(SPEC)
+sys.modules["sqlite3.dbapi2"] = importlib.util.module_from_spec(SPEC)
 
 
 def ireplace(old, repl, text):
@@ -125,7 +126,7 @@ class WikiSpider(scrapy.Spider):
 
 def main():
     "do the work"
-    os.environ['PATH'] += ":/opt"
+    os.environ["PATH"] += ":/opt"
     crawler = scrapy.crawler.CrawlerProcess(
         {
             "USER_AGENT": "Dan Tenenbaum (+https://sciwiki.fredhutch.org/contributors/dtenenba/)",
@@ -134,7 +135,7 @@ def main():
     )
 
     wks = WikiSpider()
-    crawlres = crawler.crawl(wks)
+    crawler.crawl(wks)
     crawler.start()
 
     session = boto3.session.Session()
@@ -169,9 +170,8 @@ def main():
         temp = dict(_id=doc_id, _index="sciwiki-test", _type="document", _source=item)
         outer.append(temp)
 
-
     try:
-        retval =  bulk(els, outer)
+        retval = bulk(els, outer)
         print("bulking was successful")
         print(retval)
         return retval

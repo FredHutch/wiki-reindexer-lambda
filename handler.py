@@ -1,86 +1,75 @@
-import json
-import os
-import stat
-import subprocess
-import tempfile
-import time
+"""
+lambda handlers
+"""
 
-import elasticsearch
-import scrapy
-import sh
+
+import json
+import sys
 
 import boto3
-from aws_requests_auth.aws_auth import AWSRequestsAuth
-from elasticsearch import Elasticsearch, RequestsHttpConnection
 
 import crawl_wiki
 
-def get_es_info():
-    session = boto3.session.Session()
-    credentials = session.get_credentials().get_frozen_credentials()
-    es_host = (
-        "search-sciwiki-search-0-f7ntx2mpc5g6yohp6dtiwzsdiy.us-west-2.es.amazonaws.com"
-    )
-    awsauth = AWSRequestsAuth(
-        aws_access_key=credentials.access_key,
-        aws_secret_access_key=credentials.secret_key,
-        aws_token=credentials.token,
-        aws_host=es_host,
-        aws_region=session.region_name,
-        aws_service="es",
-    )
-    es = Elasticsearch(
-        hosts=[{"host": es_host, "port": 443}],
-        http_auth=awsauth,
-        use_ssl=True,
-        verify_certs=True,
-        connection_class=RequestsHttpConnection,
-    )
-    return es.info()
 
-
-
-def push_hook(event, context):
+def push_hook(event, context):  # pylint: disable=unused-argument
     "handler for github push hook"
 
-    print("hello, sleeping for a while")
-    time.sleep(1) # TODO sleep for like 5 mins to allow jekyll to build
-    print("i am awake now!")
     lam = boto3.client("lambda")
     funcs = lam.list_functions(MaxItems=999)
-    ourfunc = [x['FunctionName'] for x in funcs['Functions'] if "wiki-reindexer" in x['FunctionName']][0]
-    result = lambda.invoke(FunctionName=ourfunc, InvocationType='Event')
+    ourfunc = [
+        x["FunctionName"]
+        for x in funcs["Functions"]
+        if "run_crawler" in x["FunctionName"]
+    ][0]
+    print("found function {}".format(ourfunc))
+    # event_obj = JSON.parse(event.body)
+    # event_obj["called_from_push_hook"] = True
+    # TODO - pass along the event from github so that
+    # the function knows more about the push (like,
+    # if there were no commits to the master branch
+    # we don' have to do anything).
+    result = lam.invoke(
+        FunctionName=ourfunc,
+        InvocationType="Event",
+        Payload=json.dumps(dict(invoked_from_push_hook=True)),
+    )
     print("result was {}".format(result))
-    response = {"statusCode": 200, "body": json.dumps(body)}
-
+    del result["Payload"]
 
     body = {
         "message": "Go Serverless v1.0! Your function executed successfully!",
         "input": event,
-        "output": response,
+        "output": json.dumps(result),
     }
 
+    response = {"statusCode": 200, "body": json.dumps(body)}
 
     return response
 
 
-def run_crawler(event, context):
+def run_crawler(event, context):  # pylint: disable=unused-argument
     "handler to start crawler"
+
+    print("were we called from push_hook?")
+    if "called_from_push_hook" in event:
+        # TODO sleep a bit
+        print("yes")
+    else:
+        print("no")
+
     body = {
         "message": "Go Serverless v1.0! Your function executed successfully!",
         "input": event,
-        "crawl_result": crawl_wiki.main()
+        "crawl_result": crawl_wiki.main(),
     }
 
     response = {"statusCode": 200, "body": json.dumps(body)}
-
-    return response
-
-    # Use this code if you don't use the http event with the LAMBDA-PROXY
-    # integration
-    """
-    return {
-        "message": "Go Serverless v1.0! Your function executed successfully!",
-        "event": event
-    }
-    """
+    print("this is the response we would return if we were returning something:")
+    print(response)
+    # TODO  exit with a different code if there's an error?
+    # This is really not ideal.
+    # TODO look into using crochet. 
+    # https://stackoverflow.com/questions/42388541/scrapy-throws-error-reactornotrestartable-when-runnning-on-aws-lambda
+    # https://stackoverflow.com/questions/41495052/scrapy-reactor-not-restartable
+    sys.exit(0)
+    # return response

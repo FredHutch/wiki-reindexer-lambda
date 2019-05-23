@@ -25,7 +25,7 @@ provider:
        Action: "es:*"
        Resource: "*"
     -  Effect: "Allow"
-       Action: "lambda:Invoke"
+       Action: "lambda:InvokeFunction"
        Resource: "*"
     -  Effect: "Allow"
        Action: "lambda:ListFunctions"
@@ -74,7 +74,9 @@ functions:
         - arn:aws:lambda:us-west-2:344850189907:layer:pandoc-layer:1
   push_hook:
     handler: handler.push_hook
-    timeout: 900 # adjust me later
+    timeout: 20 # must be < 30 secs bc we're connected to API gateway
+    events:
+      - http: POST /push_hook
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
