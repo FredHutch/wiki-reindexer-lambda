@@ -4,7 +4,7 @@ lambda handlers
 
 
 import json
-import sys
+import time
 
 import boto3
 
@@ -27,7 +27,7 @@ def push_hook(event, context):  # pylint: disable=unused-argument
     # TODO - pass along the event from github so that
     # the function knows more about the push (like,
     # if there were no commits to the master branch
-    # we don' have to do anything).
+    # we don't have to do anything).
     result = lam.invoke(
         FunctionName=ourfunc,
         InvocationType="Event",
@@ -52,8 +52,10 @@ def run_crawler(event, context):  # pylint: disable=unused-argument
 
     print("were we called from push_hook?")
     if "called_from_push_hook" in event:
-        # TODO sleep a bit
         print("yes")
+        print("Sleeping for a bit.")
+        time.sleep(5 * 60)
+        print("Woke up feeling refreshed.")
     else:
         print("no")
 
@@ -63,13 +65,16 @@ def run_crawler(event, context):  # pylint: disable=unused-argument
         "crawl_result": crawl_wiki.main(),
     }
 
-    response = {"statusCode": 200, "body": json.dumps(body)}
-    print("this is the response we would return if we were returning something:")
-    print(response)
-    # TODO  exit with a different code if there's an error?
-    # This is really not ideal.
-    # TODO look into using crochet. 
-    # https://stackoverflow.com/questions/42388541/scrapy-throws-error-reactornotrestartable-when-runnning-on-aws-lambda
-    # https://stackoverflow.com/questions/41495052/scrapy-reactor-not-restartable
-    sys.exit(0)
-    # return response
+    return {"statusCode": 200, "body": json.dumps(body)}
+
+
+def delete_orphans(event, context):  # pylint: disable=unused-argument
+    "delete items from index that are no longer on site"
+
+    body = {
+        "message": "Go Serverless v1.0! Your function executed successfully!",
+        "input": event,
+        "orphans_deleted": crawl_wiki.delete_orphans(),
+    }
+
+    return {"statusCode": 200, "body": json.dumps(body)}

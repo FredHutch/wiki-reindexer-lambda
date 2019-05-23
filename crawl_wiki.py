@@ -1,22 +1,16 @@
 """
 Crawls the wiki, generating URLs and
 page titles for each page.
-
-Run me with:
-
-scrapy runspider -o out.json -t json crawl_wiki.py
 """
 
-# import imp # NOTE deprecated in favor of importlib TODO FIX
 import importlib
+from multiprocessing import Process, Pipe
 import os
 import re
 from urllib.parse import urlparse
 import sys
 import tempfile
-
-# sys.modules["_sqlite"] = imp.new_module("_sqlite")
-
+import traceback
 
 from aws_requests_auth.aws_auth import AWSRequestsAuth
 import boto3
@@ -32,13 +26,15 @@ sys.modules["_sqlite3"] = importlib.util.module_from_spec(SPEC)
 sys.modules["sqlite3"] = importlib.util.module_from_spec(SPEC)
 sys.modules["sqlite3.dbapi2"] = importlib.util.module_from_spec(SPEC)
 
+INDEX_NAME = (
+    "sciwiki0"
+)  # sciwiki0 is the production index, use sciwiki-test for testing
+  
+
 
 def ireplace(old, repl, text):
     "case-insensitive replace"
     return re.sub("(?i)" + re.escape(old), lambda m: repl, text)
-
-
-URLDICT = dict()
 
 
 def html_to_text(html):
@@ -70,11 +66,9 @@ def html_to_text(html):
 class WikiSpider(scrapy.Spider):
     "spider class"
     name = "sciwiki"
-    start_urls = [
-        # 'http://localhost:8000',
-        "https://sciwiki.fredhutch.org"
-    ]
+    start_urls = ["https://sciwiki.fredhutch.org"]
     documents = []
+    urldict = {}
 
     def parse(self, response):
         url_str = response.url
@@ -93,19 +87,14 @@ class WikiSpider(scrapy.Spider):
         text = html_to_text(body)
 
         for title in titles:  # really there should only be one.
-            tstr = title.get()  # 'data'
+            tstr = title.get()
             tstr = ireplace("<title>", "", tstr)
             tstr = ireplace("</title>", "", tstr)
             tstr = tstr.replace(" - Fred Hutch Biomedical Data Science Wiki", "")
             tstr = tstr.strip()
 
             self.documents.append({"title": tstr, "url": url, "content": text})
-            yield {
-                "title": tstr,
-                "url": url,
-                "content": text,
-                # 'author': quote.xpath('span/small/text()').get(),
-            }
+            yield {"title": tstr, "url": url, "content": text}
 
         for item in response.css('a::attr("href")'):
             npurl = item.get()
@@ -119,25 +108,50 @@ class WikiSpider(scrapy.Spider):
                 continue
             if npurl.startswith("#"):
                 continue
-            if not npurl in URLDICT:
-                URLDICT[npurl] = 1
+            if not npurl in self.urldict:
+                self.urldict[npurl] = 1
                 yield response.follow(item, self.parse)
 
 
-def main():
-    "do the work"
-    os.environ["PATH"] += ":/opt"
-    crawler = scrapy.crawler.CrawlerProcess(
-        {
-            "USER_AGENT": "Dan Tenenbaum (+https://sciwiki.fredhutch.org/contributors/dtenenba/)",
-            "FEED_URI": "/tmp/results.json",
-        }
+def do_crawl(conn):
+    "do the crawl"
+    try:
+        url = "https://sciwiki.fredhutch.org/contributors/dtenenba/"
+        crawler = scrapy.crawler.CrawlerProcess(
+            {
+                "USER_AGENT": "Dan Tenenbaum (+{})".format(url),
+                "FEED_URI": "/tmp/results.json",
+            }
+        )
+        wks = WikiSpider()
+        crawler.crawl(wks)
+        crawler.start()
+        print("in do_crawl, number of docs is {}".format(len(wks.documents)))
+        conn.send(wks.documents)
+        conn.close()
+    except:  # pylint: disable=bare-except
+        print("FATAL: do_crawl() exited while multiprocessing")
+        traceback.print_exc()
+
+
+def get_list_of_ids():
+    "gets list of all IDs in the index"
+    conn = get_elasticsearch_connection()
+    body = dict(query=dict(match_all=dict()))
+    # bizarre pylint false positive.
+    # related to https://www.logilab.org/ticket/73813 ?
+    resp = conn.search(  # pylint: disable=unexpected-keyword-arg
+        index=INDEX_NAME,
+        docvalue_fields=["_id"],
+        stored_fields="_none_",
+        size=5000,
+        body=body,
     )
+    return [x["_id"] for x in resp["hits"]["hits"]]
 
-    wks = WikiSpider()
-    crawler.crawl(wks)
-    crawler.start()
 
+def get_elasticsearch_connection():
+    "gets an aws-authenticated elasticsearch connection"
     session = boto3.session.Session()
     credentials = session.get_credentials().get_frozen_credentials()
     es_host = (
@@ -151,7 +165,7 @@ def main():
         aws_region=session.region_name,
         aws_service="es",
     )
-    els = Elasticsearch(
+    return Elasticsearch(
         hosts=[{"host": es_host, "port": 443}],
         http_auth=awsauth,
         use_ssl=True,
@@ -159,16 +173,56 @@ def main():
         connection_class=RequestsHttpConnection,
     )
 
+
+def delete_orphans():
+    "delete items in index that are no longer on site"
+    site_urls = main(True)
+    # Velocity/sanity check:
+    if not site_urls:
+        return "error! no site urls, refusing to remove all documents!"
+
+    index_urls = get_list_of_ids()
+    orphans = list(set(index_urls) - set(site_urls))
+    if not orphans:
+        print("no orphans!")
+        return []
+    els = get_elasticsearch_connection()
+    outer = []
+    for orphan in orphans:
+        temp = dict(_id=orphan, _index=INDEX_NAME, _type="document", _op_type="delete")
+        outer.append(temp)
+        # res = els.delete(index=crawl_wiki.INDEX_NAME, id=orphan, doc_type="document")
+    print("number of site urls: {}".format(len(set(site_urls))))
+    print("number of index urls: {}".format(len(set(index_urls))))
+
+    bulk(els, outer)
+    return orphans
+    # return []  # TODO delete me
+
+
+def main(urls_only=False):
+    "do the work"
+    os.environ["PATH"] += ":/opt"
+    parent_conn, child_conn = Pipe()
+    proc = Process(target=do_crawl, args=(child_conn,))
+    proc.start()
+    docs = parent_conn.recv()
+    proc.join()
+
+    if urls_only:
+        return [x["url"] for x in docs]
+
     outer = []
 
-    for item in wks.documents:
+    for item in docs:
         doc_id = item["url"]
         del item["url"]
         # no need for _op_type below; default is to index (if doc exists) or
         # create (if not). https://stackoverflow.com/q/32133472/470769
-        # 'real' index is sciwiki0, TODO be sure and change it back!
-        temp = dict(_id=doc_id, _index="sciwiki-test", _type="document", _source=item)
+        temp = dict(_id=doc_id, _index=INDEX_NAME, _type="document", _source=item)
         outer.append(temp)
+
+    els = get_elasticsearch_connection()
 
     try:
         retval = bulk(els, outer)

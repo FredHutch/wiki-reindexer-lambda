@@ -77,6 +77,14 @@ functions:
     timeout: 20 # must be < 30 secs bc we're connected to API gateway
     events:
       - http: POST /push_hook
+  delete_orphans:
+    handler: handler.delete_orphans
+    timeout: 900 # adjust me downwards later
+    layers:
+        - arn:aws:lambda:us-west-2:344850189907:layer:pandoc-layer:1
+    events:
+      - schedule: rate(2 hours)
+    # TODO add event to trigger function via cron expression (run every few hours?)
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
