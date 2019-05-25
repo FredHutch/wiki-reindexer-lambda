@@ -29,8 +29,6 @@ sys.modules["sqlite3.dbapi2"] = importlib.util.module_from_spec(SPEC)
 INDEX_NAME = (
     "sciwiki0"
 )  # sciwiki0 is the production index, use sciwiki-test for testing
-  
-
 
 def ireplace(old, repl, text):
     "case-insensitive replace"
@@ -197,7 +195,6 @@ def delete_orphans():
 
     bulk(els, outer)
     return orphans
-    # return []  # TODO delete me
 
 
 def main(urls_only=False):

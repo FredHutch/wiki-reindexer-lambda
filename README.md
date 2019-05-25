@@ -84,4 +84,46 @@ compute environment.
 This is just a compilation of issues encountered during
 development of this project and their respective solutions.
 
-### 
+### Making the pandoc executable available
+
+I use [Pandoc](https://pandoc.org) to convert the wiki's HTML 
+pages to plain text (for indexing by Elasticsearch).
+Making the Pandoc executable available to the Lambda function
+is done by including it in a [Layer](https://docs.aws.amazon.com/lambda/latest/dg/configuration-layers.html). This makes it available in
+`/opt`, so that directory is added to the `PATH`.
+
+
+### Lack of tty
+
+I use the excellent [sh](https://amoffat.github.io/sh/) Python
+module to call programs as though they were functions.
+When deployed in the Lambda environment, the call failed with an error
+that no TTYs were available. The fix for this was to add the arguments
+`_tty_out=False` and `_tty_in=False` to any calls to `sh`. 
+
+I also wanted `pandoc` to read from STDIN and write to STDOUT using
+`io.StringIO` objects. This failed for the same reason, so I read
+from and write to temporary files instead.
+
+### Twisted reactor not restartable
+
+I use [scrapy](https://scrapy.org) to crawl and scrape the 
+wiki. It uses [Twisted](https://twistedmatrix.com) under the hood.
+Twisted programs use a Reactor, which cannot be restarted within a 
+process. Apparently, Lambda functions do not always completely
+exit; their processes are reused. So I needed to run the crawl
+in a separate process. I accomplished this using
+[multiprocessing.Pipe](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Pipe) because other
+structures were not available (see next item).
+
+### [multiprcessing.Queue](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Queue) not available
+
+My first choice for creating a separate process,
+[multiprocessing.Queue](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Queue), is not available
+in Lambda because it relies on `/dev/shm` (in memory disk-partition)
+is not available.
+So I used [multiprocessing.Pipe](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Pipe) instead.
+
+
+
+
