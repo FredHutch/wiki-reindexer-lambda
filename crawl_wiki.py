@@ -30,6 +30,7 @@ INDEX_NAME = (
     "sciwiki0"
 )  # sciwiki0 is the production index, use sciwiki-test for testing
 
+
 def ireplace(old, repl, text):
     "case-insensitive replace"
     return re.sub("(?i)" + re.escape(old), lambda m: repl, text)
