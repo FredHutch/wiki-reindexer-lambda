@@ -120,8 +120,8 @@ structures were not available (see next item).
 
 My first choice for creating a separate process,
 [multiprocessing.Queue](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Queue), is not available
-in Lambda because it relies on `/dev/shm` (in memory disk-partition)
-which is not available in Lambda.
+in Lambda because it relies on `/dev/shm` (in memory disk-partition).
+
 So I used [multiprocessing.Pipe](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Pipe) instead.
 
 
