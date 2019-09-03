@@ -4,6 +4,7 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+twisted = ">=19.7.0"
 sh = "*"
 scrapy = "*"
 elasticsearch = "*"
