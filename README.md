@@ -3,7 +3,7 @@
 A collection of [AWS Lambda](https://aws.amazon.com/lambda/) functions for tasks related to the 
 search engine for the 
 [Fred Hutch Biomedical Data Science Wiki](https://sciwiki.fredhutch.org/). The functions are managed and
-deployed with the [Serverless](https://aws.amazon.com/lambda/) platform.
+deployed with the [Serverless](https://serverless.com/) platform.
 
 ## Functions
 
@@ -121,7 +121,7 @@ structures were not available (see next item).
 My first choice for creating a separate process,
 [multiprocessing.Queue](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Queue), is not available
 in Lambda because it relies on `/dev/shm` (in memory disk-partition)
-is not available.
+which is not available in Lambda.
 So I used [multiprocessing.Pipe](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Pipe) instead.
 
 
