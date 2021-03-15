@@ -26,7 +26,7 @@ def push_hook(event, context):  # pylint: disable=unused-argument
     # event_obj["called_from_push_hook"] = True
     # TODO - pass along the event from github so that
     # the function knows more about the push (like,
-    # if there were no commits to the master branch
+    # if there were no commits to the main branch
     # we don't have to do anything).
     result = lam.invoke(
         FunctionName=ourfunc,
