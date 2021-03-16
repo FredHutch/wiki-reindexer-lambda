@@ -124,6 +124,12 @@ in Lambda because it relies on `/dev/shm` (in memory disk-partition).
 
 So I used [multiprocessing.Pipe](https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Pipe) instead.
 
+### Automatically updating the last modified date of files
+
+That is handled by this repo: [https://github.com/FredHutch/wiki_last_modified_date](https://github.com/FredHutch/wiki_last_modified_date)
+
+
+
 
 
 
