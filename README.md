@@ -45,7 +45,7 @@ You need to [install Serverless](https://serverless.com/framework/docs/getting-s
 After Node is installed, run `npm install` to install
 the serverless [plugin](https://github.com/UnitedIncome/serverless-python-requirements) that manages Python dependencies. 
 
-If it's not already installed, install [Python 3.6](https://www.python.org/downloads/release/python-368/). 
+If it's not already installed, install [Python 3.9](https://www.python.org/downloads/release/python-3913/). 
 
 Install the `pipenv` package globally (with the command `pip3 install pipenv`). It is used
 to manage dependencies in this project. 
